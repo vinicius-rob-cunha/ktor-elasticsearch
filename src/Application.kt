@@ -1,5 +1,6 @@
 package br.com.vroc
 
+import br.com.vroc.model.Partner
 import com.fasterxml.jackson.databind.SerializationFeature
 import io.ktor.application.Application
 import io.ktor.application.call
@@ -16,22 +17,32 @@ import io.ktor.response.respondText
 import io.ktor.routing.get
 import io.ktor.routing.post
 import io.ktor.routing.routing
-import org.apache.http.HttpHost
-import org.elasticsearch.client.RestClient
-import org.elasticsearch.client.RestHighLevelClient
+import org.elasticsearch.client.configure
 import org.elasticsearch.client.create
+import org.elasticsearch.client.indexRepository
+import org.elasticsearch.client.source
 import org.geojson.MultiPolygon
 import org.geojson.Point
 
 fun main(args: Array<String>) {
-    val restClientBuilder = RestClient.builder(
-        HttpHost("localhost", 9200, "http")
-    )
-    val restHighLevelClient = RestHighLevelClient(restClientBuilder)
-
     val esClient = create(host = "localhost", port = 9999)
+    val repo = esClient.indexRepository<Partner>("partners")
+    repo.createIndex {
+        configure {
+            mappings {
+                text("id")
+                text("trading_name")
+                text("owner_name")
+                field("coverage_area", "geo_shape")
+                objField("address") {
+                    text("type")
+                    field("coordinates", "geo_point")
+                }
+            }
+        }
+    }
 
-    io.ktor.server.netty.EngineMain.main(args)
+//    io.ktor.server.netty.EngineMain.main(args)
 }
 
 @Suppress("unused") // Referenced in application.conf
@@ -61,15 +72,6 @@ fun Application.module(testing: Boolean = false) {
         }
     }
 }
-
-data class Partner (
-    val id : Int,
-    val tradingName: String,
-    val ownerName: String,
-    val document: String,
-    val coverageArea: MultiPolygon,
-    val address: Point
-)
 
 data class Response (val status: String)
 

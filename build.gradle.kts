@@ -12,6 +12,7 @@ plugins {
 
 group = "br.com.vroc"
 version = "0.0.1"
+java.sourceCompatibility = JavaVersion.VERSION_1_8
 
 application {
     mainClassName = "io.ktor.server.netty.EngineMain"
@@ -42,10 +43,13 @@ dependencies {
     implementation("io.ktor:ktor-server-host-common:$ktor_version")
     implementation("io.ktor:ktor-jackson:$ktor_version")
 
+    implementation("de.huxhorn.sulky:de.huxhorn.sulky.ulid:8.2.0")
     implementation("de.grundid.opendatalab:geojson-jackson:1.14")
     implementation("com.github.jillesvangurp:es-kotlin-wrapper-client:1.0-X-Beta-9-7.9.0")
 
     testImplementation("io.ktor:ktor-server-tests:$ktor_version")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.5.2")
+    testImplementation("org.assertj:assertj-core:3.12.2")
 }
 
 kotlin.sourceSets["main"].kotlin.srcDirs("src")
@@ -53,3 +57,14 @@ kotlin.sourceSets["test"].kotlin.srcDirs("test")
 
 sourceSets["main"].resources.srcDirs("resources")
 sourceSets["test"].resources.srcDirs("testresources")
+
+tasks.withType<Test> {
+    useJUnitPlatform()
+}
+
+tasks.withType<KotlinCompile> {
+    kotlinOptions {
+        freeCompilerArgs = listOf("-Xjsr305=strict")
+        jvmTarget = "1.8"
+    }
+}
