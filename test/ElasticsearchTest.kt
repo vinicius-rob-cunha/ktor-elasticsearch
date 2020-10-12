@@ -1,15 +1,25 @@
 package br.com.vroc
 
-import br.com.vroc.model.Partner
+import br.com.vroc.application.config.ESConfig
+import br.com.vroc.application.config.ObjectMapperBuilder
+import br.com.vroc.domain.model.Partner
+import br.com.vroc.domain.repositories.PartnerRepository
+import br.com.vroc.resources.elastic.PartnerRepositoryImpl
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import de.huxhorn.sulky.ulid.ULID
-import io.inbot.eskotlinwrapper.IndexRepository
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.apache.Apache
+import io.ktor.client.features.defaultRequest
+import io.ktor.client.features.json.JacksonSerializer
+import io.ktor.client.features.json.JsonFeature
+import io.ktor.client.request.header
+import io.ktor.client.request.host
+import io.ktor.client.request.port
+import io.ktor.util.KtorExperimentalAPI
 import kotlin.random.Random
+import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
-import org.elasticsearch.action.search.source
-import org.elasticsearch.client.configure
 import org.elasticsearch.client.create
-import org.elasticsearch.client.indexRepository
 import org.geojson.LngLatAlt
 import org.geojson.MultiPolygon
 import org.geojson.Point
@@ -19,102 +29,60 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS
 
+@KtorExperimentalAPI
 @TestInstance(PER_CLASS)
 class ElasticsearchTest {
 
-    lateinit var repo: IndexRepository<Partner>
+    private lateinit var repository: PartnerRepository
     lateinit var pdvs: List<Partner>
 
     @BeforeAll
     fun setUp() {
-        val esClient = create(host = "localhost", port = 9200)
-        repo = esClient.indexRepository("partners")
-        createIndex()
+        val config = ESConfig()
+        val mapper = ObjectMapperBuilder.getMapper()
+        val httpClient = HttpClient(Apache) {
+            install(JsonFeature) {
+                serializer = JacksonSerializer(mapper)
+            }
+            defaultRequest {
+                host = config.host
+                port = config.port
+                header("Content-Type", "application/json")
+            }
+        }
+        val esClient = create(host = config.host, port = config.port)
+
+        repository = PartnerRepositoryImpl(esClient, httpClient, mapper)
+
         loadData()
     }
 
     @Test
     fun `should create a partner`() {
         val partner = PartnerSample.create()
+        repository.insert(partner)
 
-        repo.index(partner.id, partner)
-
-        val dbPartner = repo.get(partner.id)
-
+        val dbPartner = repository.getById(partner.id)
         assertThat(dbPartner).isNotNull()
     }
 
     @Test
     fun `should load a partner`() {
         val partner = pdvs[Random.nextInt(pdvs.size)]
-        val dbPartner = repo.get(partner.id)
+        val dbPartner = repository.getById(partner.id)
 
         assertThat(dbPartner).isNotNull()
         assertThat(dbPartner).isEqualTo(partner)
     }
 
     @Test
-    fun `should find by geopoint and return nearest partner`() {
+    fun `should find nearest partner within coverage area by geo point`() { runBlocking {
         val partner = pdvs[Random.nextInt(pdvs.size)]
-        val coordinates = partner.address.coordinates
-        val query = """
-                {
-                  "size": 1,
-                  "sort" : [
-                    {
-                        "_geo_distance" : {
-                            "address.coordinates" : [${coordinates.longitude}, ${coordinates.latitude}],
-                            "order" : "asc",
-                            "unit" : "km",
-                            "mode" : "min",
-                            "distance_type" : "arc",
-                            "ignore_unmapped": true
-                        }
-                    }
-                  ],
-                  "query": {
-                    "bool": {
-                      "must": {
-                        "match_all": {}
-                      },
-                      "filter": {
-                        "geo_shape": {
-                          "coverage_area": {
-                            "relation": "intersects",
-                            "shape": {
-                              "type": "point",
-                              "coordinates": [${coordinates.longitude}", "${coordinates.latitude}]
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-            """.trimIndent()
-        val result = repo.search { source(query) }.mappedHits.toList()
+        val dbPartner = repository.findNearestWithinCoverageArea(partner.address.coordinates)
 
-        assertThat(result).isNotEmpty()
-        assertThat(result.first().id).isEqualTo(partner.id)
-    }
-
-    private fun createIndex() {
-        repo.deleteIndex()
-        repo.createIndex {
-            configure {
-                mappings {
-                    text("id")
-                    text("trading_name")
-                    text("owner_name")
-                    field("coverage_area", "geo_shape")
-                    objField("address") {
-                        text("type")
-                        field("coordinates", "geo_point")
-                    }
-                }
-            }
-        }
-    }
+        assertThat(dbPartner).isNotNull()
+        assertThat(dbPartner?.id).isEqualTo(partner.id)
+    } }
 
     private fun loadData() {
         val pdvsJson = javaClass.getResource("/pdvs.json").readBytes()
@@ -125,7 +93,7 @@ class ElasticsearchTest {
         pdvs = mapper.readValue(pdvsTree, listType)
         pdvs.forEach {
             try {
-                repo.index(it.id, it)
+                repository.insert(it)
             } catch (e: Exception) {
                 println("Error to insert ${it.id}")
             }

@@ -1,4 +1,4 @@
-package br.com.vroc.model
+package br.com.vroc.domain.model
 
 import org.geojson.MultiPolygon
 import org.geojson.Point
