@@ -19,18 +19,8 @@ application {
 }
 
 repositories {
-    val artifactory_repository: String by project
-    val artifactory_user: String by project
-    val artifactory_password: String by project
-
     mavenLocal()
-    maven {
-        setUrl(artifactory_repository)
-        credentials {
-            username = artifactory_user
-            password = artifactory_password
-        }
-    }
+    mavenCentral()
     jcenter()
     maven { url = uri("https://kotlin.bintray.com/ktor") }
     maven { url = uri("https://kotlin.bintray.com/kotlinx") }
