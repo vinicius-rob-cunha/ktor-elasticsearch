@@ -59,7 +59,7 @@ class PartnerRepositoryImpl(
                   },
                   "filter": {
                     "geo_shape": {
-                      "coverage_area": {
+                      "coverageArea": {
                         "relation": "intersects",
                         "shape": {
                           "type": "point",
