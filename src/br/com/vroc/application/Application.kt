@@ -6,10 +6,12 @@ import br.com.vroc.application.exceptions.ResourceNotFoundException
 import br.com.vroc.application.modules.ConfigModule
 import br.com.vroc.application.modules.ESModule
 import br.com.vroc.application.modules.PartnerModule
+import br.com.vroc.application.util.PartnerDataSample
 import br.com.vroc.application.web.response.HttpErrorResponse
 import br.com.vroc.domain.model.Partner
 import br.com.vroc.domain.services.PartnerService
 import io.ktor.application.Application
+import io.ktor.application.ApplicationStarted
 import io.ktor.application.call
 import io.ktor.application.install
 import io.ktor.features.ContentNegotiation
@@ -26,6 +28,7 @@ import io.ktor.routing.get
 import io.ktor.routing.post
 import io.ktor.routing.routing
 import org.koin.ktor.ext.Koin
+import org.koin.ktor.ext.get
 import org.koin.ktor.ext.inject
 
 fun main(args: Array<String>) {
@@ -56,6 +59,10 @@ fun Application.main(testing: Boolean = false) {
         )
     }
 
+    environment.monitor.subscribe(ApplicationStarted) {
+        PartnerDataSample(get(), get()).load()
+    }
+
     val service: PartnerService by inject()
 
     routing {
@@ -75,6 +82,7 @@ fun Application.main(testing: Boolean = false) {
             call.respond(HttpStatusCode.Created, partner)
         }
     }
+
 }
 
 data class Response (val status: String)

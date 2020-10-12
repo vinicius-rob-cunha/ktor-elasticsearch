@@ -3,6 +3,7 @@ package br.com.vroc.resources.elastic
 import br.com.vroc.domain.model.Partner
 import br.com.vroc.domain.repositories.PartnerRepository
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.inbot.eskotlinwrapper.JacksonModelReaderAndWriter.Companion.create
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import kotlinx.coroutines.runBlocking
@@ -21,7 +22,7 @@ class PartnerRepositoryImpl(
     private val mapper: ObjectMapper
 ) : PartnerRepository {
 
-    private val repo = esClient.indexRepository<Partner>(PARTNERS_INDEX_NAME)
+    private val repo = esClient.indexRepository<Partner>(PARTNERS_INDEX_NAME, create(mapper))
 
     init {
         createIndex()
@@ -94,9 +95,9 @@ class PartnerRepositoryImpl(
                 configure {
                     mappings {
                         text("id")
-                        text("trading_name")
-                        text("owner_name")
-                        field("coverage_area", "geo_shape")
+                        text("tradingName")
+                        text("ownerName")
+                        field("coverageArea", "geo_shape")
                         objField("address") {
                             text("type")
                             field("coordinates", "geo_point")

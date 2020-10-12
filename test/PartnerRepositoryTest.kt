@@ -35,7 +35,7 @@ import org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS
 import org.junit.jupiter.api.assertThrows
 
 @TestInstance(PER_CLASS)
-class ElasticsearchTest {
+class PartnerRepositoryTest {
 
     private lateinit var repository: PartnerRepository
     private lateinit var esClient: RestHighLevelClient
