@@ -2,17 +2,18 @@ package br.com.vroc.resources.elastic
 
 import br.com.vroc.domain.model.Partner
 import br.com.vroc.domain.repositories.PartnerRepository
-import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import kotlinx.coroutines.runBlocking
+import org.elasticsearch.ElasticsearchStatusException
+import org.elasticsearch.action.support.ActiveShardCount
 import org.elasticsearch.client.RestHighLevelClient
 import org.elasticsearch.client.configure
 import org.elasticsearch.client.indexRepository
 import org.geojson.LngLatAlt
 
-const val INDEX_NAME = "partners"
+const val PARTNERS_INDEX_NAME = "partners"
 
 class PartnerRepositoryImpl(
     esClient: RestHighLevelClient,
@@ -20,10 +21,10 @@ class PartnerRepositoryImpl(
     private val mapper: ObjectMapper
 ) : PartnerRepository {
 
-    private val repo = esClient.indexRepository<Partner>(INDEX_NAME)
+    private val repo = esClient.indexRepository<Partner>(PARTNERS_INDEX_NAME)
 
     init {
-//        createIndex()
+        createIndex()
     }
 
     override fun insert(partner: Partner) {
@@ -74,8 +75,8 @@ class PartnerRepositoryImpl(
         val mapType = mapper.typeFactory.constructMapType(Map::class.java, String::class.java, Any::class.java)
         val request = mapper.readValue<Map<String, Any>>(query, mapType)
 
-        val response: ESReponse<Partner> = runBlocking {
-            client.get("/$INDEX_NAME/_search") {
+        val response: ESResponse<Partner> = runBlocking {
+            client.get("/$PARTNERS_INDEX_NAME/_search") {
                 body = request
             }
         }
@@ -86,39 +87,23 @@ class PartnerRepositoryImpl(
     }
 
     private fun createIndex() {
-        repo.deleteIndex()
-        repo.createIndex {
-            configure {
-                mappings {
-                    text("id")
-                    text("trading_name")
-                    text("owner_name")
-                    field("coverage_area", "geo_shape")
-                    objField("address") {
-                        text("type")
-                        field("coordinates", "geo_point")
+        try {
+            repo.getMappings() //check if exists
+        } catch (e: ElasticsearchStatusException) {
+            repo.createIndex(waitForActiveShards = ActiveShardCount.ONE) {
+                configure {
+                    mappings {
+                        text("id")
+                        text("trading_name")
+                        text("owner_name")
+                        field("coverage_area", "geo_shape")
+                        objField("address") {
+                            text("type")
+                            field("coordinates", "geo_point")
+                        }
                     }
                 }
             }
         }
     }
 }
-
-data class ESReponse<T> (
-    val hits : HitsResponse<T>
-)
-
-data class HitsResponse<T> (
-    val total: HitsTotalReponse,
-    val hits: List<Hit<T>>
-)
-
-data class HitsTotalReponse (
-    val value: Int,
-    val relation: String
-)
-
-data class Hit<T> (
-    @JsonProperty("_source")
-    val source: T
-)

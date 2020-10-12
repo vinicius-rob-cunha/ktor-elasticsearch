@@ -4,6 +4,7 @@ import br.com.vroc.application.config.ESConfig
 import br.com.vroc.application.config.ObjectMapperBuilder
 import br.com.vroc.domain.model.Partner
 import br.com.vroc.domain.repositories.PartnerRepository
+import br.com.vroc.resources.elastic.PARTNERS_INDEX_NAME
 import br.com.vroc.resources.elastic.PartnerRepositoryImpl
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import de.huxhorn.sulky.ulid.ULID
@@ -15,11 +16,14 @@ import io.ktor.client.features.json.JsonFeature
 import io.ktor.client.request.header
 import io.ktor.client.request.host
 import io.ktor.client.request.port
-import io.ktor.util.KtorExperimentalAPI
 import kotlin.random.Random
 import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
+import org.elasticsearch.ElasticsearchStatusException
+import org.elasticsearch.client.RestHighLevelClient
 import org.elasticsearch.client.create
+import org.elasticsearch.client.indexRepository
+import org.elasticsearch.rest.RestStatus.NOT_FOUND
 import org.geojson.LngLatAlt
 import org.geojson.MultiPolygon
 import org.geojson.Point
@@ -28,12 +32,13 @@ import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS
+import org.junit.jupiter.api.assertThrows
 
-@KtorExperimentalAPI
 @TestInstance(PER_CLASS)
 class ElasticsearchTest {
 
     private lateinit var repository: PartnerRepository
+    private lateinit var esClient: RestHighLevelClient
     lateinit var pdvs: List<Partner>
 
     @BeforeAll
@@ -50,11 +55,28 @@ class ElasticsearchTest {
                 header("Content-Type", "application/json")
             }
         }
-        val esClient = create(host = config.host, port = config.port)
+        esClient = create(host = config.host, port = config.port)
 
         repository = PartnerRepositoryImpl(esClient, httpClient, mapper)
 
         loadData()
+    }
+
+    @Test
+    fun `should check if index exists`() {
+        val repo = esClient.indexRepository<Partner>(PARTNERS_INDEX_NAME)
+        assertThat(repo.getMappings().mappings()).isNotEmpty()
+    }
+
+    @Test
+    fun `should check if index does not exists`() {
+        val repo = esClient.indexRepository<Partner>("unknown_index")
+
+        val ex = assertThrows<ElasticsearchStatusException> {
+            repo.getMappings()
+        }
+
+        assertThat(ex.status()).isEqualTo(NOT_FOUND)
     }
 
     @Test
@@ -76,6 +98,12 @@ class ElasticsearchTest {
     }
 
     @Test
+    fun `should return null when don't find a partner`() {
+        val dbPartner = repository.getById("unknown")
+        assertThat(dbPartner).isNull()
+    }
+
+    @Test
     fun `should find nearest partner within coverage area by geo point`() { runBlocking {
         val partner = pdvs[Random.nextInt(pdvs.size)]
         val dbPartner = repository.findNearestWithinCoverageArea(partner.address.coordinates)
@@ -83,6 +111,12 @@ class ElasticsearchTest {
         assertThat(dbPartner).isNotNull()
         assertThat(dbPartner?.id).isEqualTo(partner.id)
     } }
+
+    @Test
+    fun `should return null when don't find nearest partner within coverage area by geo point`() {
+        val dbPartner = repository.findNearestWithinCoverageArea(LngLatAlt(0.0,0.0))
+        assertThat(dbPartner).isNull()
+    }
 
     private fun loadData() {
         val pdvsJson = javaClass.getResource("/pdvs.json").readBytes()
