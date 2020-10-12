@@ -8,7 +8,7 @@ import org.koin.dsl.module
 
 object PartnerModule {
     fun modules(): Module = module {
-        single<PartnerRepository> { PartnerRepositoryImpl(get(), get(), get()) }
+        single<PartnerRepository> { PartnerRepositoryImpl(get(), get(), get(), get()) }
         single { PartnerService(get()) }
     }
 }

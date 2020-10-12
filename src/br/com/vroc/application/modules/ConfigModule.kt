@@ -7,7 +7,7 @@ import org.koin.dsl.module
 
 object ConfigModule {
     fun modules(): Module = module {
-        single { ESConfig() }
+        single { ESConfig(host = getProperty("ELASTICSEARCH_HOST", "localhost")) }
         single { ObjectMapperBuilder.getMapper() }
     }
 }

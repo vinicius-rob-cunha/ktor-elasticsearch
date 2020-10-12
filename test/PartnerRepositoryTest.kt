@@ -57,7 +57,7 @@ class PartnerRepositoryTest {
         }
         esClient = create(host = config.host, port = config.port)
 
-        repository = PartnerRepositoryImpl(esClient, httpClient, mapper)
+        repository = PartnerRepositoryImpl(esClient, config, httpClient, mapper)
 
         loadData()
     }

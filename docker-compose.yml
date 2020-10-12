@@ -1,7 +1,8 @@
-version: '2.2'
+version: '3.8'
 services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:7.9.2
+    container_name: elasticsearch
     environment:
       - cluster.name=es-docker-cluster
       - bootstrap.memory_lock=true
@@ -12,13 +13,29 @@ services:
         soft: -1
         hard: -1
     ports:
-      # give our test instance a port number that is for sure not going to write to some poor cluster listening on 9200
       - 9200:9200
+    networks:
+      - partner
+  ktor:
+    image: ktor-elasticsearch:latest
+    container_name: ktor-partner
+    environment:
+      - ELASTICSEARCH_HOST=elasticsearch
+    depends_on:
+      - elasticsearch
+    ports:
+      - 8080:8080
+    networks:
+      - partner
   kibana:
     image: docker.elastic.co/kibana/kibana:7.9.2
     depends_on:
-      - "elasticsearch"
+      - elasticsearch
     environment:
-      - elasticsearch.hosts=http://127.0.0.1:9200
+      - ELASTICSEARCH_HOSTS=http://127.0.0.1:9200
     ports:
       - 5601:5601
+
+networks:
+  partner:
+    driver: bridge

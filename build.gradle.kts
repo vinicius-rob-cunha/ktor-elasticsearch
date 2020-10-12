@@ -1,3 +1,4 @@
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 val ktor_version: String by project
@@ -8,10 +9,10 @@ val koin_version: String by project
 plugins {
     application
     kotlin("jvm") version "1.4.10"
+    id("com.github.johnrengelman.shadow") version "4.0.4"
 }
 
 group = "br.com.vroc"
-version = "0.0.1"
 
 application {
     mainClassName = "io.ktor.server.netty.EngineMain"
@@ -79,4 +80,8 @@ tasks.withType<KotlinCompile> {
         freeCompilerArgs = listOf("-Xjsr305=strict")
         jvmTarget = "1.8"
     }
+}
+
+tasks.withType<ShadowJar> {
+    archiveBaseName.set("${project.name}-all")
 }

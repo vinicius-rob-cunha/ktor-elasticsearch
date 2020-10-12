@@ -58,6 +58,7 @@ fun Application.main(testing: Boolean = false) {
     }
 
     install(Koin) {
+        environmentProperties()
         modules(
             PartnerModule.modules(),
             ConfigModule.modules(),
@@ -66,7 +67,7 @@ fun Application.main(testing: Boolean = false) {
     }
 
     environment.monitor.subscribe(ApplicationStarted) {
-        PartnerDataSample(get(), get()).load()
+        PartnerDataSample(get(), get(), get()).load()
     }
 
     val service: PartnerService by inject()

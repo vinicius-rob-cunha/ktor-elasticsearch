@@ -13,12 +13,16 @@ import io.ktor.client.request.port
 import org.elasticsearch.client.create
 import org.koin.core.module.Module
 import org.koin.dsl.module
+import org.koin.ext.getOrCreateScope
 
 object ESModule {
     fun modules(): Module = module {
-        val config = ESConfig()
-        single { create(host = config.host, port = config.port) }
         single {
+            val config = get<ESConfig>()
+            create(host = config.host, port = config.port)
+        }
+        single {
+            val config = get<ESConfig>()
             HttpClient(Apache) {
                 install(JsonFeature) {
                     serializer = JacksonSerializer(get())

@@ -1,5 +1,7 @@
 package br.com.vroc.resources.elastic
 
+import br.com.vroc.application.config.ESConfig
+import br.com.vroc.application.util.waitForES
 import br.com.vroc.domain.model.Partner
 import br.com.vroc.domain.repositories.PartnerRepository
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -18,15 +20,18 @@ const val PARTNERS_INDEX_NAME = "partners"
 
 class PartnerRepositoryImpl(
     esClient: RestHighLevelClient,
+    config: ESConfig,
     private val client: HttpClient,
     private val mapper: ObjectMapper
 ) : PartnerRepository {
 
     private val repo = esClient.indexRepository<Partner>(PARTNERS_INDEX_NAME, create(mapper))
 
-    init {
-        createIndex()
-    }
+    init { runBlocking {
+        waitForES(config) {
+            createIndex()
+        }
+    } }
 
     override fun insert(partner: Partner) {
         //create = false habilita para sobreescrever o registro se já existir, isso só esta sendo usado
